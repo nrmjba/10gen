@@ -1,0 +1,53 @@
+apply plugin: 'java'
+
+project.ext {
+    junitVersion = '4.11'
+}
+
+sourceCompatibility = '1.7'
+[compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile 'org.mongodb:mongo-java-driver:2.11.1'
+
+    testCompile 'junit:junit:' + ext.junitVersion
+}
+
+
+tasks.withType(Test) {
+    testLogging.showStandardStreams = true
+
+    // listen to events in the test execution lifecycle
+    beforeTest { descriptor ->
+        logger.lifecycle(":" + descriptor)
+    }
+    // listen to standard out and standard error of the test JVM(s)
+//    onOutput { descriptor, event ->
+//        logger.lifecycle("Test: " + descriptor + " produced standard out/err: " + event.message )
+//    }
+}
+
+task itest(type: Test) {
+    include "**/*ITest*"
+}
+itest.dependsOn(cleanItest)
+
+//http://www.gradle.org/docs/current/dsl/org.gradle.api.tasks.testing.Test.html
+test {
+    exclude "**/*ITest*"
+    minHeapSize = "128m"
+    maxHeapSize = "512m"
+    jvmArgs '-XX:MaxPermSize=256m'
+}
+
+task listCache << {
+    configurations.compile.each { println it }
+}
+
+task listJars << {
+    configurations.compile.each { File file -> println file.name }
+}
