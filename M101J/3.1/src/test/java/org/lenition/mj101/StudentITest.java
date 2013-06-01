@@ -6,10 +6,11 @@ import org.junit.*;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 public class StudentITest {
 
@@ -40,6 +41,8 @@ public class StudentITest {
             DBObject student = (DBObject) JSON.parse(line);
             testCollection.insert(student);
         }
+
+        assertEquals(200, testCollection.count());
     }
 
     @After
@@ -50,8 +53,41 @@ public class StudentITest {
     }
 
     @Test
-    public void dropLowestGrade() {
+    public void dropLowestHomeworkGrade() {
         assertEquals(200, testCollection.count());
+        DBCursor cursor = testCollection.find();
+        while (cursor.hasNext()) {
+            DBObject student = cursor.next();
+            BasicDBList grades = (BasicDBList)student.get("scores");
+            assertTrue(grades.size() > 0);
+            Object lowestHomeworkGrade = null;
+            for(Object grade : grades) {
+                if (((DBObject)grade).get("type").equals("homework")) {
+                    if(lowestHomeworkGrade == null || (((BasicDBObject)lowestHomeworkGrade).getDouble("score") > ((BasicDBObject)grade).getDouble("score"))) {
+                        lowestHomeworkGrade = grade;
+                    }
+                }
+            }
+            grades.remove(lowestHomeworkGrade);
+            assertTrue(grades.size() == 3);
+            testCollection.update(student, new BasicDBObject("$set", new BasicDBObject("scores", grades)));
+            testCollection.save(student);
+        }
+
+        AggregationOutput out = testCollection.aggregate(   (DBObject)JSON.parse("{'$unwind':'$scores'}"),
+                (DBObject)JSON.parse("{'$group':{'_id':'$_id', 'average':{$avg:'$scores.score'}}}"),
+                (DBObject)JSON.parse("{'$sort':{'average':-1}}, {'$limit':1}"));
+
+        CommandResult result = out.getCommandResult();
+        System.out.println(result);
+    }
+
+
+    private void printGrades(Collection<Object> grades) {
+        for(Object grade : grades) {
+            System.out.print("  " + ((BasicDBObject)grade).get("type") + ":" + ((BasicDBObject)grade).get("score"));
+        }
+        System.out.println();
     }
 
     private static String convertStreamToString(java.io.InputStream is) {
