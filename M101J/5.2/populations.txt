@@ -1,0 +1,21 @@
+mongoimport -d postal -c zips --drop < zips.json
+
+
+db.zips.aggregate(
+	[
+		{$match:{$or:[{state:"CA"}, {state:"NY"}]}},
+		{$project:{state:1, city:1, pop:1}},
+		/* get population for each city */ 
+		{$group:{
+			_id:{state:"$state", city:"$city"},
+			cityPopulation:{$sum:"$pop"}
+			}
+		},
+		/* filter for cities with >25000 population */
+		{$match:{cityPopulation:{$gt:25000}}},
+		{$group:{
+			_id:null,
+			averagePopulation:{$avg:"$cityPopulation"}
+			}
+		}
+	])

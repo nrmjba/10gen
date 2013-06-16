@@ -1,0 +1,18 @@
+mongoimport -d class -c grades --drop < grades_5-3.e0d3fd8d2201.js
+
+db.grades.aggregate(
+	[
+		{$unwind:"$scores"},
+		{$match:{$or:[{"scores.type":"homework"}, {"scores.type":"exam"}]}},
+		{$group:{
+			_id:{student_id:"$student_id", class_id:"$class_id"},
+			avgStudentClassScore:{$avg:"$scores.score"}
+			}
+		},
+		{$group:{
+			_id:"$_id.class_id",
+			avgClassScore:{$avg:"$avgStudentClassScore"}
+			}
+		},
+		{$sort:{avgClassScore:1}}
+	])
